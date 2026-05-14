@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Food Delivery Network Map</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/vis/4.21.0/vis.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/vis/4.21.0/vis.min.css" rel="stylesheet" type="text/css" />
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .content {
+            display: grid;
+            grid-template-columns: 1fr 350px;
+            gap: 20px;
+            padding: 20px;
+            min-height: 700px;
+        }
+
+        #network {
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            background: #f5f5f5;
+        }
+
+        .sidebar {
+            background: #f9f9f9;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 20px;
+            overflow-y: auto;
+            max-height: 700px;
+        }
+
+        .sidebar h2 {
+            color: #667eea;
+            font-size: 1.4em;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .stage-section {
+            margin-bottom: 20px;
+        }
+
+        .stage-title {
+            font-weight: bold;
+            color: #333;
+            font-size: 0.95em;
+            margin-bottom: 8px;
+            padding: 8px;
+            border-radius: 5px;
+            background: #e8eaf6;
+        }
+
+        .location-item {
+            padding: 8px 12px;
+            margin: 5px 0;
+            background: white;
+            border-left: 4px solid #667eea;
+            border-radius: 3px;
+            font-size: 0.9em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .location-item:hover {
+            background: #f0f4ff;
+            transform: translateX(5px);
+        }
+
+        .location-id {
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .location-name {
+            font-size: 0.85em;
+            color: #666;
+            margin-top: 2px;
+        }
+
+        .stats {
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+
+        .stats h3 {
+            color: #667eea;
+            margin-bottom: 12px;
+            font-size: 1.1em;
+        }
+
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #e0e0e0;
+            font-size: 0.95em;
+        }
+
+        .stat-item:last-child {
+            border-bottom: none;
+        }
+
+        .stat-label {
+            color: #666;
+        }
+
+        .stat-value {
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .legend {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 2px solid #e0e0e0;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.85em;
+        }
+
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            border: 2px solid #333;
+        }
+
+        @media (max-width: 1200px) {
+            .content {
+                grid-template-columns: 1fr;
+            }
+
+            .sidebar {
+                max-height: none;
+            }
+        }
+
+        .footer {
+            background: #f5f5f5;
+            padding: 20px;
+            text-align: center;
+            color: #666;
+            border-top: 2px solid #e0e0e0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚚 Food Delivery Network Map</h1>
+            <p>Complete visualization of all locations and delivery routes</p>
+        </div>
+
+        <div class="content">
+            <div id="network"></div>
+
+            <div class="sidebar">
+                <h2>Locations</h2>
+                <div id="locations-list"></div>
+
+                <div class="stats">
+                    <h3>Network Stats</h3>
+                    <div class="stat-item">
+                        <span class="stat-label">Total Locations:</span>
+                        <span class="stat-value" id="total-nodes">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Total Routes:</span>
+                        <span class="stat-value" id="total-edges">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Stages:</span>
+                        <span class="stat-value" id="total-stages">0</span>
+                    </div>
+                </div>
+
+                <div class="legend">
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #FF6B6B;"></div>
+                        <span>Restaurant</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #4ECDC4;"></div>
+                        <span>Hub</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #45B7D1;"></div>
+                        <span>Zone</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #FFA07A;"></div>
+                        <span>Customer</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>💡 Click on nodes to highlight connections | Drag nodes to rearrange | Scroll to zoom</p>
+        </div>
+    </div>
+
+    <script>
+        // Static network data (hardcoded to ensure reliability)
+        const networkData = {
+            nodes: {
+                'R1': { stage: 1, name: 'Restaurant Main' },
+                'H1': { stage: 2, name: 'Hub North' },
+                'H2': { stage: 2, name: 'Hub South' },
+                'Z1': { stage: 3, name: 'Zone East' },
+                'Z2': { stage: 3, name: 'Zone West' },
+                'C1': { stage: 4, name: 'Customer A' },
+                'C2': { stage: 4, name: 'Customer B' },
+                'C3': { stage: 4, name: 'Customer C' }
+            },
+            edges: [
+                { from: 'R1', to: 'H1', distance: 5.0, time: 10 },
+                { from: 'R1', to: 'H2', distance: 8.0, time: 15 },
+                { from: 'H1', to: 'Z1', distance: 3.0, time: 8 },
+                { from: 'H1', to: 'Z2', distance: 7.0, time: 12 },
+                { from: 'H2', to: 'Z1', distance: 6.0, time: 12 },
+                { from: 'H2', to: 'Z2', distance: 2.0, time: 5 },
+                { from: 'Z1', to: 'C1', distance: 2.0, time: 5 },
+                { from: 'Z1', to: 'C2', distance: 4.0, time: 8 },
+                { from: 'Z2', to: 'C2', distance: 3.0, time: 7 },
+                { from: 'Z2', to: 'C3', distance: 5.0, time: 10 }
+            ]
+        };
+
+        function initializeMap() {
+            try {
+                // Create vis.js nodes and edges
+                const visNodes = new vis.DataSet();
+                const visEdges = new vis.DataSet();
+
+                // Stage colors
+                const stageColors = {
+                    1: '#FF6B6B',
+                    2: '#4ECDC4',
+                    3: '#45B7D1',
+                    4: '#FFA07A'
+                };
+
+                // Group nodes by stage for positioning
+                const nodesByStage = {};
+                for (const [nodeId, nodeInfo] of Object.entries(networkData.nodes)) {
+                    const stage = nodeInfo.stage;
+                    if (!nodesByStage[stage]) {
+                        nodesByStage[stage] = [];
+                    }
+                    nodesByStage[stage].push(nodeId);
+                }
+
+                // Add nodes with proper positioning
+                for (const [nodeId, nodeInfo] of Object.entries(networkData.nodes)) {
+                    const stage = nodeInfo.stage;
+                    const stageNodes = nodesByStage[stage];
+                    const index = stageNodes.indexOf(nodeId);
+                    
+                    const x = stage * 300;
+                    const y = (index - (stageNodes.length - 1) / 2) * 200;
+                    
+                    visNodes.add({
+                        id: nodeId,
+                        label: `${nodeId}\n${nodeInfo.name}`,
+                        color: {
+                            background: stageColors[stage],
+                            border: '#333',
+                            highlight: {
+                                background: '#FFD700',
+                                border: '#000'
+                            }
+                        },
+                        font: {
+                            size: 14,
+                            face: 'Segoe UI',
+                            color: '#000',
+                            bold: { color: '#000' }
+                        },
+                        x: x,
+                        y: y,
+                        physics: false,
+                        title: `${nodeInfo.name} (Stage ${stage})`
+                    });
+                }
+
+                // Add edges
+                networkData.edges.forEach((edge, idx) => {
+                    visEdges.add({
+                        id: idx,
+                        from: edge.from,
+                        to: edge.to,
+                        label: `${edge.distance}km\n${edge.time}min`,
+                        arrows: 'to',
+                        smooth: {
+                            type: 'cubicBezier',
+                            forceDirection: 'horizontal'
+                        },
+                        color: '#999',
+                        width: 2,
+                        font: {
+                            size: 11,
+                            color: '#666',
+                            align: 'middle'
+                        },
+                        title: `${edge.distance}km, ${edge.time}min`
+                    });
+                });
+
+                // Create network
+                const container = document.getElementById('network');
+                const data = {
+                    nodes: visNodes,
+                    edges: visEdges
+                };
+
+                const options = {
+                    layout: {
+                        hierarchical: {
+                            enabled: true,
+                            levelSeparation: 300,
+                            nodeSpacing: 200,
+                            treeSpacing: 100,
+                            direction: 'LR',
+                            sortMethod: 'directed'
+                        }
+                    },
+                    physics: {
+                        enabled: false
+                    },
+                    interaction: {
+                        hover: true,
+                        navigationButtons: true,
+                        keyboard: true,
+                        zoomView: true,
+                        dragView: true
+                    }
+                };
+
+                const network = new vis.Network(container, data, options);
+
+                // Update stats
+                document.getElementById('total-nodes').textContent = Object.keys(networkData.nodes).length;
+                document.getElementById('total-edges').textContent = networkData.edges.length;
+                document.getElementById('total-stages').textContent = Object.keys(nodesByStage).length;
+
+                // Populate locations list
+                const locationsList = document.getElementById('locations-list');
+                const stageNames = {
+                    1: 'Stage 1: Restaurant',
+                    2: 'Stage 2: Pickup Hubs',
+                    3: 'Stage 3: Delivery Zones',
+                    4: 'Stage 4: Customers'
+                };
+
+                for (const stage of [1, 2, 3, 4]) {
+                    if (nodesByStage[stage]) {
+                        const section = document.createElement('div');
+                        section.className = 'stage-section';
+                        
+                        const title = document.createElement('div');
+                        title.className = 'stage-title';
+                        title.textContent = stageNames[stage];
+                        section.appendChild(title);
+
+                        for (const nodeId of nodesByStage[stage]) {
+                            const nodeInfo = networkData.nodes[nodeId];
+                            const item = document.createElement('div');
+                            item.className = 'location-item';
+                            item.innerHTML = `<div class="location-id">${nodeId}</div><div class="location-name">${nodeInfo.name}</div>`;
+                            item.addEventListener('click', () => {
+                                network.focus(nodeId, { scale: 1.5, animation: true });
+                            });
+                            section.appendChild(item);
+                        }
+
+                        locationsList.appendChild(section);
+                    }
+                }
+
+            } catch (error) {
+                console.error('Error loading map:', error);
+                document.getElementById('network').innerHTML = '<p style="padding:20px;color:red;">Error: ' + error.message + '</p>';
+            }
+        }
+
+        // Initialize map when page loads
+        window.addEventListener('load', initializeMap);
+    </script>
+</body>
+</html>

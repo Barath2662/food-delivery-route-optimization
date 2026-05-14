@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Food Delivery Network - Map & Optimizer</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/vis/4.21.0/vis.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/vis/4.21.0/vis.min.css" rel="stylesheet" type="text/css" />
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.2em;
+            margin-bottom: 8px;
+        }
+
+        .header p {
+            font-size: 1em;
+            opacity: 0.9;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            gap: 20px;
+            padding: 20px;
+            min-height: 800px;
+        }
+
+        .map-section {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        #network {
+            flex: 1;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            background: #f5f5f5;
+            min-height: 500px;
+        }
+
+        .optimizer-panel {
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 20px;
+            overflow-y: auto;
+            max-height: 800px;
+        }
+
+        .optimizer-panel h2 {
+            color: #667eea;
+            font-size: 1.3em;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            color: #333;
+            font-weight: bold;
+            margin-bottom: 6px;
+            font-size: 0.95em;
+        }
+
+        .form-group select {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 5px;
+            font-size: 0.95em;
+            cursor: pointer;
+            transition: border-color 0.3s;
+        }
+
+        .form-group select:hover {
+            border-color: #667eea;
+        }
+
+        .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 5px;
+            font-size: 0.95em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-optimize {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-optimize:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-clear {
+            background: #f0f0f0;
+            color: #333;
+            border: 2px solid #e0e0e0;
+        }
+
+        .btn-clear:hover {
+            background: #e0e0e0;
+        }
+
+        .result-box {
+            background: #f9f9f9;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .result-box.show {
+            display: block;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .result-box h3 {
+            color: #667eea;
+            margin-bottom: 12px;
+            font-size: 1.1em;
+        }
+
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #e0e0e0;
+            font-size: 0.95em;
+        }
+
+        .stat-row:last-child {
+            border-bottom: none;
+        }
+
+        .stat-label {
+            color: #666;
+            font-weight: 500;
+        }
+
+        .stat-value {
+            color: #667eea;
+            font-weight: bold;
+        }
+
+        .route-path {
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 5px;
+            padding: 12px;
+            margin-top: 12px;
+            font-size: 0.9em;
+        }
+
+        .route-step {
+            display: flex;
+            align-items: center;
+            margin: 5px 0;
+        }
+
+        .route-step .step-num {
+            background: #667eea;
+            color: white;
+            width: 25px;
+            height: 25px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 0.85em;
+            margin-right: 8px;
+            flex-shrink: 0;
+        }
+
+        .route-step .step-info {
+            flex: 1;
+        }
+
+        .step-name {
+            font-weight: bold;
+            color: #333;
+        }
+
+        .step-stage {
+            font-size: 0.85em;
+            color: #666;
+        }
+
+        .route-arrow {
+            text-align: center;
+            color: #667eea;
+            margin: 2px 0;
+            font-size: 0.9em;
+        }
+
+        .stats-panel {
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 15px;
+        }
+
+        .stats-panel h3 {
+            color: #667eea;
+            margin-bottom: 12px;
+            font-size: 1.05em;
+        }
+
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 6px 0;
+            font-size: 0.9em;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .stat-item:last-child {
+            border-bottom: none;
+        }
+
+        .stat-item strong {
+            color: #333;
+        }
+
+        .stat-item .value {
+            color: #667eea;
+            font-weight: bold;
+        }
+
+        .locations-list {
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 15px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .locations-list h3 {
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 1em;
+        }
+
+        .location-chip {
+            display: inline-block;
+            background: #f0f4ff;
+            border: 1px solid #667eea;
+            border-radius: 20px;
+            padding: 5px 12px;
+            margin: 3px;
+            font-size: 0.85em;
+            color: #667eea;
+        }
+
+        .error-message {
+            background: #fee;
+            border: 2px solid #f88;
+            border-radius: 5px;
+            padding: 12px;
+            color: #c00;
+            margin: 10px 0;
+            display: none;
+        }
+
+        .error-message.show {
+            display: block;
+        }
+
+        .success-message {
+            background: #efe;
+            border: 2px solid #8f8;
+            border-radius: 5px;
+            padding: 12px;
+            color: #060;
+            margin: 10px 0;
+            display: none;
+        }
+
+        .success-message.show {
+            display: block;
+        }
+
+        .legend {
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 15px;
+        }
+
+        .legend h3 {
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 1em;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.85em;
+            margin: 6px 0;
+        }
+
+        .legend-color {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            border: 2px solid #333;
+        }
+
+        .footer {
+            background: #f5f5f5;
+            padding: 20px;
+            text-align: center;
+            color: #666;
+            border-top: 2px solid #e0e0e0;
+        }
+
+        @media (max-width: 1400px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+
+            .optimizer-panel {
+                max-height: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚚 Food Delivery Network</h1>
+            <p>Interactive Map & Route Optimizer</p>
+        </div>
+
+        <div class="main-content">
+            <div class="map-section">
+                <div id="network"></div>
+            </div>
+
+            <div class="optimizer-panel">
+                <h2>🎯 Route Optimizer</h2>
+                
+                <div class="form-group">
+                    <label for="source">📍 Source Location:</label>
+                    <select id="source">
+                        <option value="">Select source...</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="destination">🏁 Destination:</label>
+                    <select id="destination">
+                        <option value="">Select destination...</option>
+                    </select>
+                </div>
+
+                <div class="button-group">
+                    <button class="btn btn-optimize" onclick="optimizeRoute()">Optimize Route</button>
+                    <button class="btn btn-clear" onclick="clearRoute()">Clear</button>
+                </div>
+
+                <div class="error-message" id="error-msg"></div>
+                <div class="success-message" id="success-msg"></div>
+
+                <div class="result-box" id="result-box">
+                    <h3>✅ Optimized Route Found</h3>
+                    
+                    <div class="stat-row">
+                        <span class="stat-label">Total Distance:</span>
+                        <span class="stat-value" id="result-distance">0 km</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Total Time:</span>
+                        <span class="stat-value" id="result-time">0 min</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Steps:</span>
+                        <span class="stat-value" id="result-steps">0</span>
+                    </div>
+
+                    <div class="route-path" id="route-path"></div>
+                </div>
+
+                <div class="stats-panel">
+                    <h3>📊 Network Stats</h3>
+                    <div class="stat-item">
+                        <strong>Total Locations:</strong>
+                        <span class="value" id="stat-nodes">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <strong>Total Routes:</strong>
+                        <span class="value" id="stat-edges">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <strong>Stages:</strong>
+                        <span class="value" id="stat-stages">0</span>
+                    </div>
+                </div>
+
+                <div class="locations-list">
+                    <h3>📍 All Locations</h3>
+                    <div id="locations-chips"></div>
+                </div>
+
+                <div class="legend">
+                    <h3>Legend</h3>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #FF6B6B;"></div>
+                        <span>Restaurant</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #4ECDC4;"></div>
+                        <span>Pickup Hub</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #45B7D1;"></div>
+                        <span>Delivery Zone</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #FFA07A;"></div>
+                        <span>Customer</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #FFD700; border-color: #000;"></div>
+                        <span>Selected/Highlighted</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>💡 Select source and destination to find the optimal delivery route | Click optimize to highlight the path on the map</p>
+        </div>
+    </div>
+
+    <script>
+        // Static network data
+        const networkData = {
+            nodes: {
+                'R1': { stage: 1, name: 'Restaurant Main' },
+                'H1': { stage: 2, name: 'Hub North' },
+                'H2': { stage: 2, name: 'Hub South' },
+                'Z1': { stage: 3, name: 'Zone East' },
+                'Z2': { stage: 3, name: 'Zone West' },
+                'C1': { stage: 4, name: 'Customer A' },
+                'C2': { stage: 4, name: 'Customer B' },
+                'C3': { stage: 4, name: 'Customer C' }
+            },
+            edges: [
+                { from: 'R1', to: 'H1', distance: 5.0, time: 10, cost: 50 },
+                { from: 'R1', to: 'H2', distance: 8.0, time: 15, cost: 80 },
+                { from: 'H1', to: 'Z1', distance: 3.0, time: 8, cost: 30 },
+                { from: 'H1', to: 'Z2', distance: 7.0, time: 12, cost: 70 },
+                { from: 'H2', to: 'Z1', distance: 6.0, time: 12, cost: 60 },
+                { from: 'H2', to: 'Z2', distance: 2.0, time: 5, cost: 20 },
+                { from: 'Z1', to: 'C1', distance: 2.0, time: 5, cost: 20 },
+                { from: 'Z1', to: 'C2', distance: 4.0, time: 8, cost: 40 },
+                { from: 'Z2', to: 'C2', distance: 3.0, time: 7, cost: 30 },
+                { from: 'Z2', to: 'C3', distance: 5.0, time: 10, cost: 50 }
+            ]
+        };
+
+        let network = null;
+        let currentRoute = null;
+
+        function initializeMap() {
+            try {
+                // Create vis.js nodes and edges
+                const visNodes = new vis.DataSet();
+                const visEdges = new vis.DataSet();
+
+                // Stage colors
+                const stageColors = {
+                    1: '#FF6B6B',
+                    2: '#4ECDC4',
+                    3: '#45B7D1',
+                    4: '#FFA07A'
+                };
+
+                // Group nodes by stage for positioning
+                const nodesByStage = {};
+                for (const [nodeId, nodeInfo] of Object.entries(networkData.nodes)) {
+                    const stage = nodeInfo.stage;
+                    if (!nodesByStage[stage]) {
+                        nodesByStage[stage] = [];
+                    }
+                    nodesByStage[stage].push(nodeId);
+                }
+
+                // Add nodes with proper positioning
+                for (const [nodeId, nodeInfo] of Object.entries(networkData.nodes)) {
+                    const stage = nodeInfo.stage;
+                    const stageNodes = nodesByStage[stage];
+                    const index = stageNodes.indexOf(nodeId);
+                    
+                    const x = stage * 300;
+                    const y = (index - (stageNodes.length - 1) / 2) * 200;
+                    
+                    visNodes.add({
+                        id: nodeId,
+                        label: `${nodeId}\n${nodeInfo.name}`,
+                        color: {
+                            background: stageColors[stage],
+                            border: '#333',
+                            highlight: {
+                                background: '#FFD700',
+                                border: '#000'
+                            }
+                        },
+                        font: {
+                            size: 14,
+                            face: 'Segoe UI',
+                            color: '#000',
+                            bold: { color: '#000' }
+                        },
+                        x: x,
+                        y: y,
+                        physics: false,
+                        title: `${nodeInfo.name} (Stage ${stage})`
+                    });
+                }
+
+                // Add edges
+                networkData.edges.forEach((edge, idx) => {
+                    visEdges.add({
+                        id: idx,
+                        from: edge.from,
+                        to: edge.to,
+                        label: `${edge.distance}km\n${edge.time}min`,
+                        arrows: 'to',
+                        smooth: {
+                            type: 'cubicBezier',
+                            forceDirection: 'horizontal'
+                        },
+                        color: '#999',
+                        width: 2,
+                        font: {
+                            size: 11,
+                            color: '#666',
+                            align: 'middle'
+                        },
+                        title: `${edge.distance}km, ${edge.time}min`
+                    });
+                });
+
+                // Create network
+                const container = document.getElementById('network');
+                const data = {
+                    nodes: visNodes,
+                    edges: visEdges
+                };
+
+                const options = {
+                    layout: {
+                        hierarchical: {
+                            enabled: true,
+                            levelSeparation: 300,
+                            nodeSpacing: 200,
+                            treeSpacing: 100,
+                            direction: 'LR',
+                            sortMethod: 'directed'
+                        }
+                    },
+                    physics: {
+                        enabled: false
+                    },
+                    interaction: {
+                        hover: true,
+                        navigationButtons: true,
+                        keyboard: true,
+                        zoomView: true,
+                        dragView: true
+                    }
+                };
+
+                network = new vis.Network(container, data, options);
+
+                // Update stats
+                document.getElementById('stat-nodes').textContent = Object.keys(networkData.nodes).length;
+                document.getElementById('stat-edges').textContent = networkData.edges.length;
+                document.getElementById('stat-stages').textContent = Object.keys(nodesByStage).length;
+
+                // Populate dropdowns
+                const sourceSelect = document.getElementById('source');
+                const destSelect = document.getElementById('destination');
+
+                for (const nodeId of Object.keys(networkData.nodes).sort()) {
+                    const option1 = document.createElement('option');
+                    option1.value = nodeId;
+                    option1.textContent = `${nodeId} - ${networkData.nodes[nodeId].name}`;
+                    sourceSelect.appendChild(option1);
+
+                    const option2 = document.createElement('option');
+                    option2.value = nodeId;
+                    option2.textContent = `${nodeId} - ${networkData.nodes[nodeId].name}`;
+                    destSelect.appendChild(option2);
+                }
+
+                // Populate location chips
+                const locationsChips = document.getElementById('locations-chips');
+                for (const [nodeId, nodeInfo] of Object.entries(networkData.nodes)) {
+                    const chip = document.createElement('span');
+                    chip.className = 'location-chip';
+                    chip.textContent = `${nodeId}`;
+                    chip.title = nodeInfo.name;
+                    locationsChips.appendChild(chip);
+                }
+
+            } catch (error) {
+                console.error('Error loading map:', error);
+                document.getElementById('network').innerHTML = '<p style="padding:20px;color:red;">Error: ' + error.message + '</p>';
+            }
+        }
+
+        // Dijkstra's algorithm to find shortest path
+        function findShortestPath(start, end) {
+            const distances = {};
+            const times = {};
+            const previous = {};
+            const unvisited = new Set(Object.keys(networkData.nodes));
+
+            for (const node of unvisited) {
+                distances[node] = Infinity;
+                times[node] = Infinity;
+            }
+            distances[start] = 0;
+            times[start] = 0;
+
+            while (unvisited.size > 0) {
+                let minNode = null;
+                for (const node of unvisited) {
+                    if (minNode === null || distances[node] < distances[minNode]) {
+                        minNode = node;
+                    }
+                }
+
+                if (distances[minNode] === Infinity) break;
+                if (minNode === end) break;
+
+                unvisited.delete(minNode);
+
+                for (const edge of networkData.edges) {
+                    if (edge.from === minNode && unvisited.has(edge.to)) {
+                        const newDist = distances[minNode] + edge.distance;
+                        const newTime = times[minNode] + edge.time;
+
+                        if (newDist < distances[edge.to]) {
+                            distances[edge.to] = newDist;
+                            times[edge.to] = newTime;
+                            previous[edge.to] = minNode;
+                        }
+                    }
+                }
+            }
+
+            // Reconstruct path
+            const path = [];
+            let current = end;
+            while (current !== undefined) {
+                path.unshift(current);
+                current = previous[current];
+            }
+
+            if (path[0] === start && path[path.length - 1] === end) {
+                return {
+                    path: path,
+                    distance: distances[end],
+                    time: times[end]
+                };
+            }
+
+            return null;
+        }
+
+        function optimizeRoute() {
+            const source = document.getElementById('source').value;
+            const dest = document.getElementById('destination').value;
+            const errorMsg = document.getElementById('error-msg');
+            const successMsg = document.getElementById('success-msg');
+            const resultBox = document.getElementById('result-box');
+
+            errorMsg.classList.remove('show');
+            successMsg.classList.remove('show');
+
+            if (!source || !dest) {
+                errorMsg.textContent = '❌ Please select both source and destination locations';
+                errorMsg.classList.add('show');
+                resultBox.classList.remove('show');
+                return;
+            }
+
+            if (source === dest) {
+                errorMsg.textContent = '❌ Source and destination must be different';
+                errorMsg.classList.add('show');
+                resultBox.classList.remove('show');
+                return;
+            }
+
+            // Check if path is possible (must go forward through stages)
+            const sourceSt = networkData.nodes[source].stage;
+            const destStage = networkData.nodes[dest].stage;
+
+            if (sourceSt >= destStage) {
+                errorMsg.textContent = `❌ Route must go forward through stages. Source must be in an earlier stage than destination.`;
+                errorMsg.classList.add('show');
+                resultBox.classList.remove('show');
+                return;
+            }
+
+            const result = findShortestPath(source, dest);
+
+            if (!result || result.distance === Infinity) {
+                errorMsg.textContent = '❌ No valid route exists between these locations';
+                errorMsg.classList.add('show');
+                resultBox.classList.remove('show');
+                return;
+            }
+
+            currentRoute = result.path;
+
+            // Display results
+            document.getElementById('result-distance').textContent = result.distance.toFixed(1) + ' km';
+            document.getElementById('result-time').textContent = result.time + ' min';
+            document.getElementById('result-steps').textContent = result.path.length;
+
+            // Display route path
+            const routePathDiv = document.getElementById('route-path');
+            routePathDiv.innerHTML = '';
+
+            result.path.forEach((nodeId, idx) => {
+                const nodeInfo = networkData.nodes[nodeId];
+                const step = document.createElement('div');
+                step.className = 'route-step';
+                step.innerHTML = `
+                    <div class="step-num">${idx + 1}</div>
+                    <div class="step-info">
+                        <div class="step-name">${nodeId} - ${nodeInfo.name}</div>
+                        <div class="step-stage">Stage ${nodeInfo.stage}</div>
+                    </div>
+                `;
+                routePathDiv.appendChild(step);
+
+                if (idx < result.path.length - 1) {
+                    const arrow = document.createElement('div');
+                    arrow.className = 'route-arrow';
+                    arrow.innerHTML = '↓';
+                    routePathDiv.appendChild(arrow);
+                }
+            });
+
+            resultBox.classList.add('show');
+            successMsg.textContent = '✅ Optimal route calculated successfully!';
+            successMsg.classList.add('show');
+
+            // Highlight route on map
+            highlightRoute(result.path);
+        }
+
+        function highlightRoute(path) {
+            // Highlight nodes
+            network.selectNodes(path);
+
+            // Highlight edges in the path
+            const highlightedEdges = [];
+            for (let i = 0; i < path.length - 1; i++) {
+                for (let j = 0; j < networkData.edges.length; j++) {
+                    const edge = networkData.edges[j];
+                    if (edge.from === path[i] && edge.to === path[i + 1]) {
+                        highlightedEdges.push(j);
+                    }
+                }
+            }
+
+            network.selectEdges(highlightedEdges);
+        }
+
+        function clearRoute() {
+            document.getElementById('source').value = '';
+            document.getElementById('destination').value = '';
+            document.getElementById('result-box').classList.remove('show');
+            document.getElementById('error-msg').classList.remove('show');
+            document.getElementById('success-msg').classList.remove('show');
+            network.unselectAll();
+            currentRoute = null;
+        }
+
+        // Initialize map when page loads
+        window.addEventListener('load', initializeMap);
+    </script>
+</body>
+</html>

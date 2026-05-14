@@ -17,6 +17,16 @@ app.register_blueprint(api_bp, url_prefix='/api')
 def index():
     return render_template('index.html')
 
+@app.route('/map')
+def network_map():
+    """Display the interactive network map"""
+    return render_template('network_map.html')
+
+@app.route('/optimizer')
+def map_optimizer():
+    """Display the unified map and optimizer"""
+    return render_template('map_optimizer.html')
+
 @app.route('/health')
 def health():
     return jsonify({'status': 'healthy'}), 200
